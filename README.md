@@ -6,7 +6,7 @@ The official server plugin for [Hytale-Hub.de](https://www.hytale-hub.de), the G
 It connects your server to the site: **verified live status**, **vote delivery with in-game rewards**, **account linking** and an optional **server rules screen**.
 
 > Full guides (setup, token, linking players, FAQ): <https://www.hytale-hub.de/docs/plugin>
-> Releases: see the [Releases](../../releases) page. Current version: **0.2.2**
+> Releases: see the [Releases](../../releases) page. Current version: **0.2.3**
 
 ---
 
@@ -22,7 +22,7 @@ It connects your server to the site: **verified live status**, **vote delivery w
 
 ## Requirements
 
-- A Hytale server. API calls verified against server 0.5.6, 0.6.8 and 0.7.0; run-tested on 0.7.0.
+- A Hytale server, version 0.5 to 0.7 (declared as `>=0.5.0 <0.8.0` in the manifest). API calls verified against 0.5.6, 0.6.8, 0.7.0 and 0.7.4; run-tested on 0.7.0 and 0.7.4. On a newer server the plugin still loads, the server only logs a version warning.
 - Java 25+ (the one your server already uses)
 - An API token from your server dashboard on Hytale-Hub.de
 
@@ -104,7 +104,7 @@ If anything does not work, check the console for lines starting with `[HytaleHub
 | Mode | Use when | How it works |
 |---|---|---|
 | `pull` (default) | Almost always. Works behind firewalls and on rented hosting. | The plugin asks the API for new votes every 15 s. No open port needed. |
-| `tcp` | Self-hosted with a free port. | Classic Votifier v2 server (challenge + HMAC-SHA256). Open the port in your firewall. |
+| `tcp` | Self-hosted with a free port. | Votifier v2 server: only signed messages with the challenge of the connection (HMAC-SHA256). Limits: 8 KB per message, 5 s per connection, 4 connections per IP. Open the port in your firewall. |
 | `http` | The `Nitrado:WebServer` plugin is installed. | Votes arrive at `/HytaleHub/HytaleHubPlugin/vote`. |
 
 ## Rewards
@@ -162,6 +162,14 @@ Issues and pull requests are welcome. Please run the API check before you open a
 
 ## Changelog
 
+### 0.2.3
+- Fix: TCP mode rejected every vote from hytale-hub.de ("Missing serviceName"). The signed message is now accepted with or without v2 binary framing.
+- TCP mode hardened: unsigned formats are rejected, 8 KB message limit, 5 s per connection, 4 connections per IP, bounded queue. Slow or flooding clients can no longer block real votes.
+- The placeholder token from the default config is never accepted as a signing key; the plugin warns at startup until a real token is set.
+- HTTP mode: request body limited to 8 KB.
+- Manifest declares the supported server range `>=0.5.0 <0.8.0`.
+- The rules page timer thread is stopped on shutdown (no leftover thread after `/plugin` reload).
+
 ### 0.2.2
 - Fix: a vote arriving while `/rewards` was open was lost on the next claim.
 - Fix: offline votes were processed before the player was in the world; reward commands could miss them.
@@ -172,6 +180,7 @@ Issues and pull requests are welcome. Please run the API check before you open a
 - `config.example.json` matches the real config format.
 
 ### 0.2.1
+- Thanks to **KaGurke** for reporting the errors on newer Hytale servers. That report started the fixes in 0.2.1 to 0.2.3.
 - Fix: `NoSuchMethodError` on newer servers in `/vote` broadcast (`Universe.getPlayers`), `/rewards` (`Player.sendMessage`, `ContainerWindow.onClose0`) and the rules kick (`PacketHandler.disconnect`).
 - Fix: commands work again for normal players on servers 0.6+ (`requireNoPermission`).
 - Rewards are granted before chat and broadcast; every step fails on its own.

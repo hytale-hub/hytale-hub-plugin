@@ -66,6 +66,13 @@ tools/ApiCheck.java        server API signature checker
 - Pull mode: vote `id`s are remembered (`markVoteIdSeen`) so a repeated delivery never pays twice.
 - Player names go into console commands. Only `[A-Za-z0-9_]{1,32}` is accepted (`VoteHandler.isValidUsername`).
 - Item IDs are checked against `Item.getAssetMap()` (`model/RewardItems`); an unknown id would otherwise become an empty item.
+- TCP Votifier: hytale-hub.de sends `{"payload","signature"}` as one JSON line without v2 magic. Both that and v2
+  binary framing go through `verifyWrapper` (HMAC first, then challenge). Keep the limits in `VotifierServer`
+  (8 KB, 5 s deadline, 4 per IP, bounded queue): the website gives a vote 3 s, a blocked worker loses it.
+- The placeholder token (`DEIN_API_TOKEN` / `YOUR_API_TOKEN`) is public and must never verify anything:
+  use `HytaleHubConfig.isTokenConfigured`.
+- `manifest.json` `ServerVersion` is a range (`>=0.5.0 <0.8.0`). Widen it only after ApiCheck and a run on the new
+  server version. The server only warns outside the range, it does not refuse to load.
 - Never log the API token. Tokens only travel as `Authorization: Bearer`.
 - `.ui` files: ASCII only, double quotes only, every selector id must exist in the markup. The client rejects the whole
   page otherwise.

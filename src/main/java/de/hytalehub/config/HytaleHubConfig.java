@@ -137,6 +137,22 @@ public class HytaleHubConfig {
         return token;
     }
 
+    /**
+     * True if a real token is set. The placeholder from the default config must never act as
+     * a signing key: it is public, so anyone could sign votes with it.
+     */
+    public static boolean isTokenConfigured(String token) {
+        if (token == null || token.isBlank()) {
+            return false;
+        }
+        String t = token.trim();
+        return !t.equalsIgnoreCase("DEIN_API_TOKEN") && !t.equalsIgnoreCase("YOUR_API_TOKEN");
+    }
+
+    public boolean isTokenConfigured() {
+        return isTokenConfigured(token);
+    }
+
     public FeaturesConfig getFeatures() {
         return features != null ? features : new FeaturesConfig();
     }

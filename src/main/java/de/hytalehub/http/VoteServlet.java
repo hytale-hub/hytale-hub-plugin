@@ -60,8 +60,12 @@ public class VoteServlet extends HttpServlet {
         }
 
         try {
-            // 1. Read and parse JSON body
-            String body = req.getReader().lines().collect(Collectors.joining());
+            // 1. Read and parse JSON body (bounded: a vote is a few hundred bytes)
+            String body = readLimited(req, MAX_BODY_CHARS);
+            if (body == null) {
+                sendError(resp, requestId, 413, "too_large", "Request body too large", debug);
+                return;
+            }
 
             if (debug) {
                 plugin.log(Level.INFO, "[HTTP #" + requestId + "] Body: " + body);
@@ -97,7 +101,7 @@ public class VoteServlet extends HttpServlet {
 
             // 4. Get unified token
             String token = config.getToken();
-            if (token == null || token.isEmpty()) {
+            if (!HytaleHubConfig.isTokenConfigured(token)) {
                 sendError(resp, requestId, 401, "not_configured",
                         "No token configured", debug);
                 return;
@@ -136,6 +140,23 @@ public class VoteServlet extends HttpServlet {
             }
             sendError(resp, requestId, 500, "internal_error", "Internal server error", debug);
         }
+    }
+
+    private static final int MAX_BODY_CHARS = 8192;
+
+    /** Reads the body up to maxChars; returns null if it is longer. */
+    private static String readLimited(HttpServletRequest req, int maxChars) throws IOException {
+        java.io.Reader reader = req.getReader();
+        StringBuilder sb = new StringBuilder();
+        char[] buf = new char[1024];
+        int n;
+        while ((n = reader.read(buf)) != -1) {
+            if (sb.length() + n > maxChars) {
+                return null;
+            }
+            sb.append(buf, 0, n);
+        }
+        return sb.toString();
     }
 
     private boolean verifyHmac(String message, String signature, String secret) {

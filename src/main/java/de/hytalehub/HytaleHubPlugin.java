@@ -90,6 +90,10 @@ public class HytaleHubPlugin extends JavaPlugin {
     protected void start() {
         log(Level.INFO, "Starting Hytale-Hub services...");
 
+        if (config != null && !config.isTokenConfigured()) {
+            log(Level.WARNING, "No API token set in config.json (\"token\"). Live status and votes will not work until you add the token from your server dashboard on hytale-hub.de.");
+        }
+
         // Start Verified Live heartbeat
         if (config.getFeatures().isHeartbeat()) {
             heartbeatService.start();
@@ -188,6 +192,12 @@ public class HytaleHubPlugin extends JavaPlugin {
         }
 
         // rulesAcceptanceService saves immediately on markAccepted(), no need to save on shutdown
+
+        try {
+            RulesPage.shutdownTimer();
+        } catch (Throwable e) {
+            // Class may not be loaded yet; nothing to stop
+        }
 
         log(Level.INFO, "Shutdown complete!");
     }

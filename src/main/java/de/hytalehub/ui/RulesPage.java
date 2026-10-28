@@ -294,6 +294,14 @@ public class RulesPage extends InteractiveCustomUIPage<RulesPage.Data> {
         return input.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
+    /**
+     * Stops the countdown timer thread. Called on plugin shutdown; without it every
+     * /plugin reload leaves one thread behind that keeps the old plugin classes in memory.
+     */
+    public static void shutdownTimer() {
+        TIMER_EXECUTOR.shutdownNow();
+    }
+
     public static void forceClosePage(String username) {
         RulesPage page = ACTIVE_PAGES.remove(username.toLowerCase());
         if (page != null) {

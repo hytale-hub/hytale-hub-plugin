@@ -2,7 +2,6 @@ package de.hytalehub.votifier;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonSyntaxException;
 import de.hytalehub.HytaleHubPlugin;
 import de.hytalehub.config.HytaleHubConfig;
 import de.hytalehub.handler.VoteHandler;
@@ -21,7 +20,8 @@ import java.util.logging.Level;
 
 /**
  * Handles the Votifier protocol for a single connection.
- * Supports Votifier v2 (HMAC-based) and simple JSON mode.
+ * Accepts only signed Votifier v2 messages (HMAC-SHA256 + per-connection challenge),
+ * either with binary v2 framing or as one JSON line (the format hytale-hub.de sends).
  */
 public class VotifierProtocolHandler {
 
@@ -29,6 +29,8 @@ public class VotifierProtocolHandler {
     private static final String HMAC_ALGORITHM = "HmacSHA256";
     private static final Gson GSON = new Gson();
     private static final SecureRandom RANDOM = new SecureRandom();
+    /** Upper bound for one vote message; real votes are a few hundred bytes. */
+    private static final int MAX_MESSAGE_BYTES = 8192;
 
     private final HytaleHubPlugin plugin;
     private final HytaleHubConfig config;
@@ -68,39 +70,49 @@ public class VotifierProtocolHandler {
         debugLog("Sent greeting: " + greeting);
 
         try {
+            String token = config.getToken();
+            if (!HytaleHubConfig.isTokenConfigured(token)) {
+                plugin.log(Level.WARNING, "[Votifier] No API token configured (config.json \"token\"), vote rejected");
+                throw new VotifierException("Server not configured");
+            }
+
             // Peek at first 2 bytes to detect protocol
             input.mark(2);
             int byte1 = input.read();
             int byte2 = input.read();
             input.reset();
+            if (byte1 < 0 || byte2 < 0) {
+                throw new VotifierException("Empty input");
+            }
 
             short magic = (short) ((byte1 << 8) | (byte2 & 0xFF));
 
             debugLog("First 2 bytes: 0x" + HexFormat.of().toHexDigits(magic) + " (expected v2 magic: 0x733a)");
 
-            Vote vote;
+            String wrapperJson;
             if (magic == V2_MAGIC) {
-                debugLog("Detected Votifier v2 protocol");
-                vote = readV2VoteMessage(challenge);
+                debugLog("Detected Votifier v2 binary framing");
+                wrapperJson = readV2Frame();
             } else {
-                debugLog("Magic mismatch - trying simple JSON mode");
-                vote = readSimpleJsonVote();
+                // The same signed wrapper as one JSON line (what hytale-hub.de sends)
+                debugLog("No v2 magic - reading signed JSON line");
+                wrapperJson = readLimitedLine();
             }
 
-            if (vote != null) {
-                // Check for duplicate
-                if (dedupeService.checkAndRecord(vote)) {
-                    debugLog("Duplicate vote rejected: " + vote.getUsername() + " from " + vote.getServiceName());
-                    sendResponse("error", "duplicate vote");
-                    plugin.log(Level.WARNING, "[Votifier] Duplicate vote rejected: " + vote.getUsername());
-                    return;
-                }
+            Vote vote = verifyWrapper(wrapperJson, challenge, token);
 
-                // Process the vote
-                voteHandler.handleVote(vote);
-                sendResponse("ok", null);
-                plugin.log(Level.INFO, "[Votifier] Vote accepted: " + vote.getUsername() + " from " + vote.getServiceName());
+            // Check for duplicate
+            if (dedupeService.checkAndRecord(vote)) {
+                debugLog("Duplicate vote rejected: " + vote.getUsername() + " from " + vote.getServiceName());
+                sendResponse("error", "duplicate vote");
+                plugin.log(Level.WARNING, "[Votifier] Duplicate vote rejected: " + vote.getUsername());
+                return;
             }
+
+            // Process the vote
+            voteHandler.handleVote(vote);
+            sendResponse("ok", null);
+            plugin.log(Level.INFO, "[Votifier] Vote accepted: " + vote.getUsername() + " from " + vote.getServiceName());
 
         } catch (VotifierException e) {
             sendResponse("error", e.getMessage());
@@ -108,90 +120,72 @@ public class VotifierProtocolHandler {
         }
     }
 
-    private Vote readV2VoteMessage(String expectedChallenge) throws IOException, VotifierException {
-        // Read magic
+    /** Binary v2 framing: magic (2 bytes), length (2 bytes), JSON wrapper. */
+    private String readV2Frame() throws IOException, VotifierException {
         short magic = input.readShort();
         if (magic != V2_MAGIC) {
             throw new VotifierException("Invalid protocol magic: 0x" + HexFormat.of().toHexDigits(magic));
         }
 
-        // Read length
         short length = input.readShort();
         debugLog("Message length: " + length + " bytes");
 
-        if (length <= 0 || length > 4096) {
+        if (length <= 0 || length > MAX_MESSAGE_BYTES) {
             throw new VotifierException("Invalid message length: " + length);
         }
 
-        // Read JSON
         byte[] jsonBytes = new byte[length];
         input.readFully(jsonBytes);
-        String jsonString = new String(jsonBytes, StandardCharsets.UTF_8);
+        return new String(jsonBytes, StandardCharsets.UTF_8);
+    }
 
+    /** Reads one line, at most MAX_MESSAGE_BYTES. Longer input is rejected instead of buffered. */
+    private String readLimitedLine() throws IOException, VotifierException {
+        ByteArrayOutputStream buf = new ByteArrayOutputStream(512);
+        int b;
+        while ((b = input.read()) != -1) {
+            if (b == '\n') break;
+            if (buf.size() >= MAX_MESSAGE_BYTES) {
+                throw new VotifierException("Message too long");
+            }
+            buf.write(b);
+        }
+        String line = buf.toString(StandardCharsets.UTF_8).trim();
+        if (line.isEmpty()) {
+            throw new VotifierException("Empty input");
+        }
+        return line;
+    }
+
+    /**
+     * Checks a signed vote wrapper {"payload": "<json>", "signature": "<base64 HMAC-SHA256>"}.
+     * The payload must carry the challenge of this connection (replay protection).
+     */
+    private Vote verifyWrapper(String jsonString, String expectedChallenge, String token) throws VotifierException {
         debugLog("Raw JSON wrapper: " + jsonString);
 
-        // Parse wrapper
         JsonObject wrapper;
         try {
             wrapper = GSON.fromJson(jsonString, JsonObject.class);
-        } catch (JsonSyntaxException e) {
-            throw new VotifierException("Invalid JSON wrapper: " + e.getMessage());
+        } catch (RuntimeException e) {
+            throw new VotifierException("Invalid JSON");
         }
 
         if (wrapper == null || !wrapper.has("payload") || !wrapper.has("signature")) {
-            throw new VotifierException("Missing payload or signature in wrapper");
+            throw new VotifierException("Unsupported vote format (expected signed payload)");
         }
 
-        String payload = wrapper.get("payload").getAsString();
-        String signatureEncoded = wrapper.get("signature").getAsString();
-
-        debugLog("Payload: " + payload);
-        debugLog("Signature (encoded): " + signatureEncoded);
-
-        // Parse inner payload
-        JsonObject inner;
-        try {
-            inner = GSON.fromJson(payload, JsonObject.class);
-        } catch (JsonSyntaxException e) {
-            throw new VotifierException("Invalid inner payload JSON: " + e.getMessage());
+        String payload = getJsonString(wrapper, "payload");
+        String signatureEncoded = getJsonString(wrapper, "signature");
+        if (payload == null || signatureEncoded == null) {
+            throw new VotifierException("Missing payload or signature");
         }
 
-        // Extract vote data
-        String serviceName = getJsonString(inner, "serviceName");
-        String username = getJsonString(inner, "username");
-        long timestamp = getJsonLong(inner, "timestamp", 0);
-        String challenge = getJsonString(inner, "challenge");
-
-        debugLog("Parsed - serviceName: " + serviceName + ", username: " + username +
-                ", timestamp: " + timestamp + ", challenge: " + (challenge != null ? challenge.substring(0, Math.min(8, challenge.length())) + "..." : "null"));
-
-        // Validate required fields
-        if (serviceName == null || serviceName.isEmpty()) {
-            throw new VotifierException("Missing serviceName");
-        }
-        if (username == null || username.isEmpty()) {
-            throw new VotifierException("Missing username");
-        }
-
-        // Validate challenge (replay protection)
-        if (challenge == null || !expectedChallenge.equals(challenge)) {
-            debugLog("Challenge mismatch! Expected: " + expectedChallenge + ", Got: " + challenge);
-            throw new VotifierException("Challenge mismatch (replay protection)");
-        }
-
-        // Get token - use unified token from config
-        String token = config.getToken();
-        if (token == null || token.isBlank()) {
-            plugin.log(Level.WARNING, "[Votifier] No token configured!");
-            throw new VotifierException("Server not configured");
-        }
-
-        // Validate signature
+        // Signature first: nothing from an unsigned payload is trusted or logged as data
         byte[] signature;
         try {
             signature = Base64.getDecoder().decode(signatureEncoded);
         } catch (IllegalArgumentException e) {
-            debugLog("Failed to decode signature as Base64, trying hex...");
             try {
                 signature = HexFormat.of().parseHex(signatureEncoded);
             } catch (IllegalArgumentException e2) {
@@ -206,30 +200,25 @@ public class VotifierProtocolHandler {
 
         debugLog("Signature validation PASSED");
 
-        return new Vote(serviceName, username, timestamp);
-    }
-
-    private Vote readSimpleJsonVote() throws IOException, VotifierException {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8));
-        String line = reader.readLine();
-
-        if (line == null || line.isEmpty()) {
-            throw new VotifierException("Empty input (not v2 protocol)");
-        }
-
-        debugLog("Simple JSON input: " + line);
-
-        JsonObject json;
+        JsonObject inner;
         try {
-            json = GSON.fromJson(line, JsonObject.class);
-        } catch (JsonSyntaxException e) {
-            throw new VotifierException("Invalid JSON: " + e.getMessage());
+            inner = GSON.fromJson(payload, JsonObject.class);
+        } catch (RuntimeException e) {
+            throw new VotifierException("Invalid inner payload JSON");
+        }
+        if (inner == null) {
+            throw new VotifierException("Empty payload");
         }
 
-        String serviceName = getJsonString(json, "serviceName");
-        String username = getJsonString(json, "username");
-        long timestamp = getJsonLong(json, "timestamp", System.currentTimeMillis() / 1000);
-        String signature = getJsonStringOrDefault(json, "signature", null);
+        String challenge = getJsonString(inner, "challenge");
+        if (challenge == null || !MessageDigest.isEqual(
+                expectedChallenge.getBytes(StandardCharsets.UTF_8), challenge.getBytes(StandardCharsets.UTF_8))) {
+            throw new VotifierException("Challenge mismatch (replay protection)");
+        }
+
+        String serviceName = getJsonString(inner, "serviceName");
+        String username = getJsonString(inner, "username");
+        long timestamp = getJsonLong(inner, "timestamp", System.currentTimeMillis() / 1000);
 
         if (serviceName == null || serviceName.isEmpty()) {
             throw new VotifierException("Missing serviceName");
@@ -238,37 +227,7 @@ public class VotifierProtocolHandler {
             throw new VotifierException("Missing username");
         }
 
-        // Get token
-        String token = config.getToken();
-        if (token == null || token.isBlank()) {
-            plugin.log(Level.WARNING, "[Votifier] No token configured!");
-            throw new VotifierException("Server not configured");
-        }
-
-        // Validate signature if provided
-        if (signature != null && !signature.isEmpty()) {
-            String canonical = serviceName + ":" + username + ":" + timestamp;
-            debugLog("Simple mode canonical: " + canonical);
-
-            byte[] sigBytes;
-            try {
-                sigBytes = HexFormat.of().parseHex(signature);
-            } catch (IllegalArgumentException e) {
-                try {
-                    sigBytes = Base64.getDecoder().decode(signature);
-                } catch (IllegalArgumentException e2) {
-                    throw new VotifierException("Invalid signature encoding");
-                }
-            }
-
-            if (!validateHmacSignature(canonical, sigBytes, token)) {
-                throw new VotifierException("Invalid signature");
-            }
-        } else if (!debug) {
-            throw new VotifierException("Missing signature");
-        } else {
-            debugLog("WARNING: Accepting unsigned vote (debug mode only!)");
-        }
+        debugLog("Parsed - serviceName: " + serviceName + ", username: " + username + ", timestamp: " + timestamp);
 
         return new Vote(serviceName, username, timestamp);
     }
@@ -322,20 +281,19 @@ public class VotifierProtocolHandler {
     }
 
     private String getJsonString(JsonObject obj, String key) {
-        if (obj.has(key) && !obj.get(key).isJsonNull()) {
+        if (obj.has(key) && obj.get(key).isJsonPrimitive()) {
             return obj.get(key).getAsString();
         }
         return null;
     }
 
-    private String getJsonStringOrDefault(JsonObject obj, String key, String defaultValue) {
-        String value = getJsonString(obj, key);
-        return value != null ? value : defaultValue;
-    }
-
     private long getJsonLong(JsonObject obj, String key, long defaultValue) {
-        if (obj.has(key) && !obj.get(key).isJsonNull()) {
-            return obj.get(key).getAsLong();
+        if (obj.has(key) && obj.get(key).isJsonPrimitive()) {
+            try {
+                return obj.get(key).getAsLong();
+            } catch (NumberFormatException e) {
+                return defaultValue;
+            }
         }
         return defaultValue;
     }

@@ -42,11 +42,11 @@ Spieler können ihren Hytale-Account mit der Website verknüpfen für Direct-Vot
 ## Installation
 
 ### Voraussetzungen
-- Hytale Server (API-Aufrufe geprüft gegen 0.5.6, 0.6.8, 0.7.0; Laufzeittest auf 0.7.0)
+- Hytale Server 0.5 bis 0.7 (im Manifest als `>=0.5.0 <0.8.0` angegeben; API-Aufrufe geprüft gegen 0.5.6, 0.6.8, 0.7.0 und 0.7.4, Laufzeittest auf 0.7.0 und 0.7.4). Auf neueren Servern lädt das Plugin trotzdem, der Server schreibt nur eine Versionswarnung ins Log.
 - Java 25+
 
 ### Schnellstart
-1. `HytaleHub-0.2.2.jar` in den `mods/` Ordner kopieren
+1. `HytaleHub-0.2.3.jar` in den `mods/` Ordner kopieren
 2. Server starten (erzeugt Standard-Konfiguration)
 3. Server stoppen
 4. `mods/HytaleHub_HytaleHubPlugin/config.json` bearbeiten
@@ -258,15 +258,16 @@ Wenn ein Spieler dem Server beitritt:
 
 **Protokoll:** Votifier v2 (HMAC-basiert)
 1. Server sendet: `VOTIFIER 2 <challenge>`
-2. Client sendet: JSON mit Payload + HMAC-SHA256 Signatur
+2. Client sendet: `{"payload": "<json>", "signature": "<base64>"}` (als JSON-Zeile oder mit v2-Binärrahmen). Die Payload muss die Challenge dieser Verbindung enthalten.
 3. Server antwortet: `{"status":"ok"}` oder `{"status":"error","cause":"..."}`
 
 **Sicherheits-Features:**
 - Challenge-Token pro Verbindung (Replay-Schutz)
 - HMAC-SHA256 Signatur-Validierung
 - Constant-Time Signatur-Vergleich
-- Max. 10 gleichzeitige Verbindungen
-- 5 Sekunden Socket-Timeout
+- Nur signierte Nachrichten; unsignierte Formate werden abgelehnt
+- Höchstens 8 KB pro Nachricht, 5 Sekunden pro Verbindung, 4 gleichzeitige Verbindungen pro IP
+- Der Platzhalter-Token aus der Standard-Config wird nie als Schlüssel akzeptiert
 
 Firewall-Regeln:
 ```bash
@@ -510,7 +511,7 @@ Aktiviere mit `"debug": true` in der Config.
 - HMAC-SHA256 Signatur für alle API-Requests
 - Constant-Time Vergleich bei Token-Validierung
 - Challenge-basierter Replay-Schutz (TCP-Modus)
-- Rate Limiting: Max 10 gleichzeitige TCP-Verbindungen
+- TCP: höchstens 4 gleichzeitige Verbindungen pro IP, 5 Sekunden pro Verbindung, begrenzte Warteschlange
 
 ### Vote-Deduplizierung
 
@@ -534,7 +535,7 @@ Verhindert doppelte Vote-Verarbeitung:
 # Projekt bauen
 gradle build
 
-# JAR: build/libs/HytaleHub-0.2.2.jar
+# JAR: build/libs/HytaleHub-0.2.3.jar
 ```
 
 ### Entwicklungs-Voraussetzungen
@@ -563,6 +564,14 @@ java -cp tools/bin ApiCheck <klassen-ordner> <Server-x.y.z.jar>
 
 ## Changelog
 
+### v0.2.3
+- Fix: Der TCP-Modus hat jeden Vote von hytale-hub.de abgelehnt ("Missing serviceName"). Die signierte Nachricht wird jetzt mit und ohne v2-Binärrahmen angenommen.
+- TCP-Modus gehärtet: unsignierte Formate werden abgelehnt, 8 KB pro Nachricht, 5 Sekunden pro Verbindung, 4 Verbindungen pro IP, begrenzte Warteschlange. Langsame oder massenhafte Verbindungen blockieren keine echten Votes mehr.
+- Der Platzhalter-Token aus der Standard-Config gilt nie als Schlüssel; das Plugin warnt beim Start, bis ein echter Token eingetragen ist.
+- HTTP-Modus: Anfragen höchstens 8 KB.
+- Manifest gibt den unterstützten Server-Bereich an: `>=0.5.0 <0.8.0`.
+- Der Timer-Thread der Regelseite wird beim Beenden gestoppt (kein Rest-Thread nach `/plugin`-Neuladen).
+
 ### v0.2.2
 - Fix: Kam ein Vote, während `/rewards` offen war, gingen dessen Items beim nächsten Abholen verloren.
 - Fix: Offline-Votes wurden verarbeitet, bevor der Spieler in der Welt war; Reward-Befehle konnten ins Leere laufen.
@@ -573,6 +582,7 @@ java -cp tools/bin ApiCheck <klassen-ordner> <Server-x.y.z.jar>
 - `config.example.json` entspricht dem echten Config-Format.
 
 ### v0.2.1
+- Danke an **KaGurke** für die Meldung der Fehler auf neueren Hytale-Servern. Daraus sind die Fixes in 0.2.1 bis 0.2.3 entstanden.
 - Fix: `NoSuchMethodError` auf neueren Servern bei `/vote`-Broadcast, `/rewards` und Regeln-Kick (geänderte Server-API).
 - Fix: Befehle funktionieren auf Servern ab 0.6 wieder für normale Spieler (`requireNoPermission`).
 - Belohnungen werden vor Chat und Broadcast vergeben; jeder Schritt schlägt einzeln fehl.
