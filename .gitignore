@@ -1,0 +1,14 @@
+# Build
+out/
+build/
+.gradle/
+tools/bin/
+*.jar
+!gradle/wrapper/*.jar
+
+# Lokal
+libs/*
+!libs/.gitkeep
+.idea/
+AdminUI/
+hytale-ui-docs/

@@ -1,0 +1,76 @@
+Group {
+  LayoutMode: Top;
+  Background: #000000(0.75);
+
+  Group {
+    FlexWeight: 1;
+  }
+
+  Group {
+    Anchor: (Width: 580, Height: 520);
+    LayoutMode: Top;
+    Background: #0f0f1e(0.95);
+
+    Group {
+      Anchor: (Height: 3);
+      Background: #ef4444;
+    }
+
+    Group {
+      Anchor: (Height: 55);
+      LayoutMode: Left;
+      Background: #141428(0.9);
+      Padding: (Left: 20, Right: 20);
+
+      Label {
+        FlexWeight: 1;
+        Style: (FontSize: 20, TextColor: #ef4444, RenderBold: true, RenderUppercase: true, LetterSpacing: 2, VerticalAlignment: Center);
+        Text: "Serverregeln";
+      }
+    }
+
+    Group {
+      Anchor: (Height: 1);
+      Background: #ffffff(0.05);
+    }
+
+    Group {
+      FlexWeight: 1;
+      LayoutMode: TopScrolling;
+      Padding: (Top: 12, Bottom: 12, Left: 20, Right: 20);
+
+      Group #RulesContent {
+        LayoutMode: Top;
+      }
+    }
+
+    Group {
+      Anchor: (Height: 1);
+      Background: #ffffff(0.05);
+    }
+
+    Group {
+      Anchor: (Height: 65);
+      LayoutMode: Left;
+      Padding: (Top: 12, Bottom: 12);
+      Background: #141428(0.5);
+
+      Label {FlexWeight: 1;}
+      TextButton #CloseBtn {
+        Anchor: (Width: 200, Height: 40);
+        Background: #374151(0.3);
+        Text: "Schliessen";
+        Style: TextButtonStyle(
+          Default: (LabelStyle: (FontSize: 15, TextColor: #c8c8d4, RenderBold: true, HorizontalAlignment: Center, VerticalAlignment: Center)),
+          Hovered: (Background: #374151(0.5), LabelStyle: (FontSize: 15, TextColor: #ffffff, RenderBold: true, HorizontalAlignment: Center, VerticalAlignment: Center)),
+          Pressed: (Background: #374151(0.7), LabelStyle: (FontSize: 15, TextColor: #ffffff, RenderBold: true, HorizontalAlignment: Center, VerticalAlignment: Center)),
+        );
+      }
+      Label {FlexWeight: 1;}
+    }
+  }
+
+  Group {
+    FlexWeight: 1;
+  }
+}

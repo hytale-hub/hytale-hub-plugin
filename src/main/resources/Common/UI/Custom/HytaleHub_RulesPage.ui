@@ -1,0 +1,100 @@
+Group {
+  LayoutMode: Top;
+  Background: #000000(0.75);
+
+  Group {
+    FlexWeight: 1;
+  }
+
+  Group {
+    Anchor: (Width: 580, Height: 520);
+    LayoutMode: Top;
+    Background: #0f0f1e(0.95);
+
+    Group {
+      Anchor: (Height: 3);
+      Background: #ef4444;
+    }
+
+    Group {
+      Anchor: (Height: 55);
+      LayoutMode: Left;
+      Background: #141428(0.9);
+      Padding: (Left: 20, Right: 20);
+
+      Label {
+        FlexWeight: 1;
+        Style: (FontSize: 20, TextColor: #ef4444, RenderBold: true, RenderUppercase: true, LetterSpacing: 2, VerticalAlignment: Center);
+        Text: "Serverregeln";
+      }
+    }
+
+    Group {
+      Anchor: (Height: 28);
+      LayoutMode: Left;
+      Background: #0a0a18(0.8);
+      Padding: (Left: 20, Right: 20);
+
+      Label #TimerLabel {
+        FlexWeight: 1;
+        Style: (FontSize: 11, TextColor: #fbbf24, VerticalAlignment: Center);
+        Text: "Bitte lies die Regeln...";
+      }
+    }
+
+    Group {
+      Anchor: (Height: 1);
+      Background: #ffffff(0.05);
+    }
+
+    Group {
+      FlexWeight: 1;
+      LayoutMode: TopScrolling;
+      Padding: (Top: 12, Bottom: 12, Left: 20, Right: 20);
+
+      Group #RulesContent {
+        LayoutMode: Top;
+      }
+    }
+
+    Group {
+      Anchor: (Height: 1);
+      Background: #ffffff(0.05);
+    }
+
+    Group {
+      Anchor: (Height: 65);
+      LayoutMode: Left;
+      Padding: (Left: 30, Right: 30, Top: 12, Bottom: 12);
+      Background: #141428(0.5);
+
+      TextButton #DeclineBtn {
+        Anchor: (Width: 180, Height: 40);
+        Background: #ef4444(0.15);
+        Text: "Ablehnen";
+        Style: TextButtonStyle(
+          Default: (LabelStyle: (FontSize: 15, TextColor: #ef4444, RenderBold: true, HorizontalAlignment: Center, VerticalAlignment: Center)),
+          Hovered: (Background: #ef4444(0.3), LabelStyle: (FontSize: 15, TextColor: #ff6b6b, RenderBold: true, HorizontalAlignment: Center, VerticalAlignment: Center)),
+          Pressed: (Background: #ef4444(0.5), LabelStyle: (FontSize: 15, TextColor: #ffffff, RenderBold: true, HorizontalAlignment: Center, VerticalAlignment: Center)),
+        );
+      }
+
+      Group {
+        FlexWeight: 1;
+      }
+
+      TextButton #AcceptBtn {
+        Anchor: (Width: 180, Height: 40);
+        Background: #374151(0.3);
+        Text: "Akzeptieren";
+        Style: TextButtonStyle(
+          Default: (LabelStyle: (FontSize: 15, TextColor: #555555, RenderBold: true, HorizontalAlignment: Center, VerticalAlignment: Center)),
+        );
+      }
+    }
+  }
+
+  Group {
+    FlexWeight: 1;
+  }
+}

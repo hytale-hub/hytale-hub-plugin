@@ -1,0 +1,17 @@
+{
+  "Group": "HytaleHub",
+  "Name": "HytaleHubPlugin",
+  "Version": "0.2.1",
+  "Description": "Official Hytale-Hub.de integration plugin - Verified Live status and multi-mode Votifier support (TCP, HTTP, Pull)",
+  "Main": "de.hytalehub.HytaleHubPlugin",
+  "Authors": [
+    {
+      "Name": "Hytale-Hub.de",
+      "Url": "https://www.hytale-hub.de"
+    }
+  ],
+  "Website": "https://www.hytale-hub.de",
+  "ServerVersion": "*",
+  "DisabledByDefault": false,
+  "IncludesAssetPack": true
+}

@@ -1,0 +1,126 @@
+Group {
+  LayoutMode: Top;
+  Background: #000000(0.75);
+
+  Group {
+    FlexWeight: 1;
+  }
+
+  Group {
+    Anchor: (Width: 520, Height: 470);
+    LayoutMode: Top;
+    Background: #0f0f1e(0.95);
+
+    Group {
+      Anchor: (Height: 3);
+      Background: #a855f7;
+    }
+
+    Group {
+      Anchor: (Height: 50);
+      LayoutMode: Left;
+      Background: #141428(0.9);
+      Padding: (Left: 20, Right: 20);
+
+      Label {
+        FlexWeight: 1;
+        Style: (FontSize: 20, TextColor: #a855f7, RenderBold: true, RenderUppercase: true, LetterSpacing: 2, VerticalAlignment: Center);
+        Text: "Deine Rewards";
+      }
+    }
+
+    Group #Content {
+      FlexWeight: 1;
+      LayoutMode: Top;
+      Padding: (Top: 10, Bottom: 10, Left: 15, Right: 15);
+
+      Group {
+        Anchor: (Height: 28);
+        LayoutMode: Left;
+
+        Label {FlexWeight: 1;}
+        Label #TotalInfo {
+          Style: (FontSize: 13, TextColor: #666666, VerticalAlignment: Center);
+          Text: "0 Rewards verfuegbar";
+        }
+        Label {FlexWeight: 1;}
+      }
+
+      Group {
+        Anchor: (Height: 1);
+        Background: #ffffff(0.05);
+      }
+
+      Group {
+        FlexWeight: 1;
+        LayoutMode: TopScrolling;
+        Padding: (Top: 8, Bottom: 8);
+
+        Group #RewardCards {
+          LayoutMode: Top;
+        }
+      }
+
+      Group {
+        Anchor: (Height: 1);
+        Background: #ffffff(0.05);
+      }
+
+      Group {
+        LayoutMode: Left;
+        Anchor: (Height: 45);
+        Padding: (Left: 80, Right: 80, Top: 5);
+
+        TextButton #PrevPage {
+          Anchor: (Width: 90, Height: 35);
+          Background: #374151(0.4);
+          Text: "< Zurueck";
+          Style: TextButtonStyle(
+            Default: (LabelStyle: (FontSize: 13, TextColor: #aaaaaa, HorizontalAlignment: Center, VerticalAlignment: Center)),
+            Hovered: (Background: #374151(0.7), LabelStyle: (FontSize: 13, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center)),
+            Pressed: (Background: #374151(0.9), LabelStyle: (FontSize: 13, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center)),
+          );
+        }
+
+        Label #PageInfo {
+          FlexWeight: 1;
+          Style: (FontSize: 15, TextColor: #888888, HorizontalAlignment: Center, VerticalAlignment: Center);
+          Text: "1 / 1";
+        }
+
+        TextButton #NextPage {
+          Anchor: (Width: 90, Height: 35);
+          Background: #374151(0.4);
+          Text: "Weiter >";
+          Style: TextButtonStyle(
+            Default: (LabelStyle: (FontSize: 13, TextColor: #aaaaaa, HorizontalAlignment: Center, VerticalAlignment: Center)),
+            Hovered: (Background: #374151(0.7), LabelStyle: (FontSize: 13, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center)),
+            Pressed: (Background: #374151(0.9), LabelStyle: (FontSize: 13, TextColor: #ffffff, HorizontalAlignment: Center, VerticalAlignment: Center)),
+          );
+        }
+      }
+
+      Group {
+        LayoutMode: Left;
+        Anchor: (Height: 48);
+
+        Label {FlexWeight: 1;}
+        TextButton #ClaimAll {
+          Anchor: (Width: 200, Height: 40);
+          Background: #a855f7(0.15);
+          Text: "Alle abholen";
+          Style: TextButtonStyle(
+            Default: (LabelStyle: (FontSize: 15, TextColor: #a855f7, RenderBold: true, HorizontalAlignment: Center, VerticalAlignment: Center)),
+            Hovered: (Background: #a855f7(0.3), LabelStyle: (FontSize: 15, TextColor: #c084fc, RenderBold: true, HorizontalAlignment: Center, VerticalAlignment: Center)),
+            Pressed: (Background: #a855f7(0.5), LabelStyle: (FontSize: 15, TextColor: #ffffff, RenderBold: true, HorizontalAlignment: Center, VerticalAlignment: Center)),
+          );
+        }
+        Label {FlexWeight: 1;}
+      }
+    }
+  }
+
+  Group {
+    FlexWeight: 1;
+  }
+}
