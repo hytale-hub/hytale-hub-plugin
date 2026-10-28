@@ -57,6 +57,15 @@ tools/ApiCheck.java        server API signature checker
 
 - A vote must never lose its reward because a message failed. Keep reward steps independent and catch `Throwable`
   (not only `Exception`) around each step, because linkage errors are `Error`s.
+- Pending rewards: never write back a list the UI held on to (`replaceRewards`). Remove what was handed out with
+  `PendingRewardsService.removeReward`, right after the item is in the inventory. Votes add rewards at any time.
+- Data files (`pending_*.json`, `accepted_rules.json`) go through `service/JsonFiles`: atomic write, corrupt file moved
+  aside. Services are `synchronized`; poll, TCP, HTTP and world threads all touch them.
+- Offline votes are processed on `PlayerReadyEvent` (player is in a world), not on `PlayerConnectEvent`. Ready fires again
+  on every world change, so the join flow is guarded once per session.
+- Pull mode: vote `id`s are remembered (`markVoteIdSeen`) so a repeated delivery never pays twice.
+- Player names go into console commands. Only `[A-Za-z0-9_]{1,32}` is accepted (`VoteHandler.isValidUsername`).
+- Item IDs are checked against `Item.getAssetMap()` (`model/RewardItems`); an unknown id would otherwise become an empty item.
 - Never log the API token. Tokens only travel as `Authorization: Bearer`.
 - `.ui` files: ASCII only, double quotes only, every selector id must exist in the markup. The client rejects the whole
   page otherwise.

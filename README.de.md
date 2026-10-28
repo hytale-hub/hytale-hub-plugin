@@ -46,7 +46,7 @@ Spieler können ihren Hytale-Account mit der Website verknüpfen für Direct-Vot
 - Java 25+
 
 ### Schnellstart
-1. `HytaleHub-0.2.1.jar` in den `mods/` Ordner kopieren
+1. `HytaleHub-0.2.2.jar` in den `mods/` Ordner kopieren
 2. Server starten (erzeugt Standard-Konfiguration)
 3. Server stoppen
 4. `mods/HytaleHub_HytaleHubPlugin/config.json` bearbeiten
@@ -534,7 +534,7 @@ Verhindert doppelte Vote-Verarbeitung:
 # Projekt bauen
 gradle build
 
-# JAR: build/libs/HytaleHub-0.2.1.jar
+# JAR: build/libs/HytaleHub-0.2.2.jar
 ```
 
 ### Entwicklungs-Voraussetzungen
@@ -562,6 +562,15 @@ java -cp tools/bin ApiCheck <klassen-ordner> <Server-x.y.z.jar>
 ---
 
 ## Changelog
+
+### v0.2.2
+- Fix: Kam ein Vote, während `/rewards` offen war, gingen dessen Items beim nächsten Abholen verloren.
+- Fix: Offline-Votes wurden verarbeitet, bevor der Spieler in der Welt war; Reward-Befehle konnten ins Leere laufen.
+- Fix: Speicherdateien werden sicher geschrieben; eine kaputte Datei wird beiseitegelegt (`*.corrupt-<zeit>`), statt das Plugin zu stoppen.
+- Fix: Im Pull-Modus werden Vote-IDs gemerkt, doppelte Zustellungen ignoriert.
+- Fix: "Alle abholen" konnte nach einem Fehler Items doppelt geben; unbekannte Item-IDs werden abgelehnt.
+- Spielernamen werden geprüft, bevor sie in Konsolenbefehle gehen. Fehlgeschlagene Reward-Befehle stehen im Log.
+- `config.example.json` entspricht dem echten Config-Format.
 
 ### v0.2.1
 - Fix: `NoSuchMethodError` auf neueren Servern bei `/vote`-Broadcast, `/rewards` und Regeln-Kick (geänderte Server-API).

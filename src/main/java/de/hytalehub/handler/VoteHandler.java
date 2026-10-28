@@ -11,6 +11,7 @@ import de.hytalehub.config.HytaleHubConfig;
 import de.hytalehub.model.PendingVote;
 import de.hytalehub.model.RewardItem;
 import de.hytalehub.model.Vote;
+import de.hytalehub.model.RewardItems;
 import de.hytalehub.service.PendingRewardsService;
 import de.hytalehub.service.PendingVoteService;
 import de.hytalehub.service.VoteReminderService;
@@ -57,6 +58,13 @@ public class VoteHandler {
     public void handleVote(Vote vote) {
         String username = vote.getUsername();
 
+        // The name goes into console commands that run with full rights. Hytale names only use
+        // letters, digits and underscores; anything else is not a real player and is dropped.
+        if (!isValidUsername(username)) {
+            plugin.log(Level.WARNING, "Vote ignored: invalid player name '" + username + "'");
+            return;
+        }
+
         Optional<PlayerRef> playerOpt = findOnlinePlayer(username);
 
         if (playerOpt.isPresent()) {
@@ -78,7 +86,7 @@ public class VoteHandler {
 
     public void processPendingVotes(PlayerRef player) {
         String username = player.getUsername();
-        var pendingVotes = pendingVoteService.getPendingVotes(username);
+        var pendingVotes = pendingVoteService.takePendingVotes(username);
 
         if (pendingVotes.isEmpty()) {
             return;
@@ -90,7 +98,6 @@ public class VoteHandler {
             processVoteRewards(player, pending.getVote());
         }
 
-        pendingVoteService.clearPendingVotes(username);
         pendingVoteService.updateLastVoteTime(username);
 
         // Stop vote reminders since player has now voted
@@ -158,6 +165,11 @@ public class VoteHandler {
 
         // Convert config items to RewardItem objects
         for (HytaleHubConfig.ItemReward configItem : itemRewards) {
+            if (!RewardItems.isUsable(configItem.getItemId(), configItem.getQuantity())) {
+                plugin.log(Level.WARNING, "Item reward skipped, unknown item or bad quantity in config.json: "
+                    + configItem.getItemId() + " x" + configItem.getQuantity());
+                continue;
+            }
             RewardItem reward = RewardItem.fromVote(configItem.getItemId(), configItem.getQuantity());
             pendingRewardsService.addReward(username, reward);
 
@@ -210,21 +222,27 @@ public class VoteHandler {
                     .replace("%player%", username)
                     .replace("%from%", serviceName);
 
-            try {
-                dispatchCommand(formatted);
-                plugin.log(Level.FINE, "Executed reward command: " + formatted);
-            } catch (Exception e) {
-                plugin.log(Level.WARNING, "Failed to execute command '" + formatted + "': " + e.getMessage());
-            }
+            dispatchCommand(formatted);
         }
     }
 
     private void dispatchCommand(String command) {
         try {
-            CommandManager.get().handleCommand(ConsoleSender.INSTANCE, command);
-        } catch (Exception e) {
-            plugin.log(Level.WARNING, "Command dispatch failed for: " + command + " - " + e.getMessage());
+            // Runs asynchronously; log the real outcome instead of assuming success
+            CommandManager.get().handleCommand(ConsoleSender.INSTANCE, command).whenComplete((ok, error) -> {
+                if (error != null) {
+                    plugin.log(Level.WARNING, "Reward command failed: '" + command + "': " + error);
+                } else if (config.isDebug()) {
+                    plugin.log(Level.INFO, "[DEBUG] Reward command done: " + command);
+                }
+            });
+        } catch (Throwable e) {
+            plugin.log(Level.WARNING, "Reward command failed: '" + command + "': " + e);
         }
+    }
+
+    static boolean isValidUsername(String username) {
+        return username != null && username.matches("[A-Za-z0-9_]{1,32}");
     }
 
     private Optional<PlayerRef> findOnlinePlayer(String username) {

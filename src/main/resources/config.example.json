@@ -1,56 +1,46 @@
 {
-  "token": "YOUR_API_TOKEN_HERE",
-  "vote": {
-    "commandName": "vote",
-    "message": {
-      "text": "Jetzt abstimmen fuer",
-      "linkText": "[Klicke hier]",
-      "textColor": "#f0c040",
-      "serverColor": "#f0c040",
-      "linkColor": "#58a6ff"
-    }
+  "token": "DEIN_API_TOKEN",
+  "features": {
+    "heartbeat": true,
+    "votifier": true,
+    "voteCommand": true,
+    "voteCommandName": "vote",
+    "testVoteCommand": true,
+    "testVoteCommandName": "testvote",
+    "voteReminder": true,
+    "reminderIntervalMinutes": 120
   },
-  
-  "verifiedLive": {
-    "enabled": true,
-    "endpoint": "https://www.hytale-hub.de/api/private/status/ingest",
-    "statusToken": "YOUR_STATUS_TOKEN_HERE",
-    "intervalSeconds": 30,
-    "minIntervalSeconds": 10,
-    "httpTimeoutMs": 5000
-  },
-  
   "votifier": {
-    "enabled": true,
-    "bindHost": "0.0.0.0",
-    "bindPort": 8192,
-    "tokens": {
-      "HytaleHub": "YOUR_VOTIFIER_TOKEN_HERE"
-    }
+    "mode": "pull",
+    "port": 8192
   },
-  
   "rewards": {
-    "rewardCommands": [
-      "give %player% diamond --quantity=3",
-      "currency add %player% 100"
+    "items": [
+      { "itemId": "Ore_Gold", "quantity": 25 },
+      { "itemId": "Ore_Silver", "quantity": 25 },
+      { "itemId": "Ore_Silver_Shale", "quantity": 25 },
+      { "itemId": "Weapon_Longsword_Flame", "quantity": 1 },
+      { "itemId": "Weapon_Gun", "quantity": 1 },
+      { "itemId": "Weapon_Arrow_Crude", "quantity": 25 },
+      { "itemId": "Weapon_Arrow_Crude", "quantity": 25 },
+      { "itemId": "Armor_Mithril_Hands", "quantity": 1 },
+      { "itemId": "Armor_Mithril_Chest", "quantity": 1 },
+      { "itemId": "Armor_Mithril_Head", "quantity": 1 },
+      { "itemId": "Armor_Mithril_Legs", "quantity": 1 }
     ],
-    "rewardDisplayNames": [
-      "3x 💎 Diamant",
-      "100 🪙 Coins"
+    "commands": [
+      "camshake debug Battleaxe_Frontflip_Chop 10 --player %player%"
     ],
-    "rewardMessages": [],
-    "rewardBroadcasts": [],
-    "broadcastEnabled": false
+    "description": "1x Komplette Mithril Ruestung, 1x Waffe + 50 Schuss, 25x Silver Ore, 25x Gold Ore"
   },
-  
-  "voteLinks": {
-    "Hytale Hub": "https://www.hytale-hub.de"
+  "broadcast": {
+    "enabled": true,
+    "message": "%player% hat gevotet und erhaelt: %rewards%"
   },
-  
-  "reminders": {
-    "dailyReminderEnabled": true,
-    "reminderDelaySeconds": 60,
-    "reminderMessage": "Du hast heute noch nicht gevotet! Unterstütze den Server auf Hytale-Hub.de",
-    "reminderIntervalHours": 24
-  }
+  "messages": {
+    "voteSuccess": "",
+    "voteReminder": "Du hast heute noch nicht gevotet! /vote",
+    "alreadyVoted": "Du hast heute bereits gevotet!"
+  },
+  "debug": false
 }

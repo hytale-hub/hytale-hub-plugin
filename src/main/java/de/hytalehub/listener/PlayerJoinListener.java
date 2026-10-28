@@ -15,6 +15,8 @@ import de.hytalehub.service.PendingRewardsService;
 import de.hytalehub.service.RulesAcceptanceService;
 import de.hytalehub.service.VoteReminderService;
 
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 
 /**
@@ -28,6 +30,7 @@ public class PlayerJoinListener {
     private final VoteReminderService voteReminderService;
     private final PendingRewardsService pendingRewardsService;
     private final RulesAcceptanceService rulesAcceptanceService;
+    private final Set<String> handledThisSession = ConcurrentHashMap.newKeySet();
 
     public PlayerJoinListener(
             HytaleHubPlugin plugin,
@@ -42,21 +45,18 @@ public class PlayerJoinListener {
         this.rulesAcceptanceService = rulesAcceptanceService;
     }
 
+    /**
+     * Connect fires before the player is in a world. Rewards are not handled here:
+     * reward commands look the player up in the world and would miss them.
+     */
     public void onPlayerJoin(PlayerConnectEvent event) {
-        PlayerRef player = event.getPlayerRef();
-
-        if (player == null) {
-            return;
-        }
-
-        // If first-join rules are enabled and player hasn't accepted yet, defer to onPlayerReady
-        if (needsRulesAcceptance(player)) {
-            return;
-        }
-
-        runNormalJoinFlow(player);
+        // Intentionally empty, everything happens in onPlayerReady.
     }
 
+    /**
+     * Ready fires once the player is in a world, and again on every world change.
+     * The join flow runs only once per session.
+     */
     public void onPlayerReady(PlayerReadyEvent event) {
         Player player = event.getPlayer();
         if (player == null) {
@@ -68,8 +68,12 @@ public class PlayerJoinListener {
             return;
         }
 
-        // Only show rules page if needed
+        if (!handledThisSession.add(playerRef.getUsername().toLowerCase())) {
+            return;
+        }
+
         if (!needsRulesAcceptance(playerRef)) {
+            runNormalJoinFlow(playerRef);
             return;
         }
 
@@ -89,6 +93,14 @@ public class PlayerJoinListener {
         }
     }
 
+    /**
+     * Called on disconnect so the next login runs the join flow again.
+     */
+    public void onPlayerLeave(String username) {
+        if (username != null) {
+            handledThisSession.remove(username.toLowerCase());
+        }
+    }
     private boolean needsRulesAcceptance(PlayerRef player) {
         if (rulesAcceptanceService == null) {
             return false;
@@ -137,7 +149,7 @@ public class PlayerJoinListener {
     private void processPendingVotes(PlayerRef player) {
         try {
             voteHandler.processPendingVotes(player);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             plugin.log(Level.WARNING, "Error processing pending votes for " + player.getUsername() + ": " + e.getMessage());
         }
     }

@@ -28,28 +28,23 @@ public class RulesAcceptanceService {
         this.filePath = filePath;
     }
 
-    public void loadFromFile() throws IOException {
+    public synchronized void loadFromFile() throws IOException {
         acceptedPlayers.clear();
-        if (Files.exists(filePath)) {
-            String json = Files.readString(filePath, StandardCharsets.UTF_8);
-            Set<String> loaded = GSON.fromJson(json, SET_TYPE);
-            if (loaded != null) {
-                acceptedPlayers.addAll(loaded);
-            }
+        Set<String> loaded = JsonFiles.read(filePath, json -> GSON.<Set<String>>fromJson(json, SET_TYPE));
+        if (loaded != null) {
+            acceptedPlayers.addAll(loaded);
         }
     }
 
-    public void saveToFile() throws IOException {
-        Files.createDirectories(filePath.getParent());
-        String json = GSON.toJson(acceptedPlayers);
-        Files.writeString(filePath, json, StandardCharsets.UTF_8);
+    public synchronized void saveToFile() throws IOException {
+        JsonFiles.writeAtomic(filePath, GSON.toJson(new HashSet<>(acceptedPlayers)));
     }
 
-    public boolean hasAccepted(String username) {
+    public synchronized boolean hasAccepted(String username) {
         return acceptedPlayers.contains(username.toLowerCase());
     }
 
-    public void markAccepted(String username) {
+    public synchronized void markAccepted(String username) {
         acceptedPlayers.add(username.toLowerCase());
         try {
             saveToFile();
@@ -58,7 +53,7 @@ public class RulesAcceptanceService {
         }
     }
 
-    public int resetAll() {
+    public synchronized int resetAll() {
         int count = acceptedPlayers.size();
         acceptedPlayers.clear();
         try {
@@ -69,7 +64,7 @@ public class RulesAcceptanceService {
         return count;
     }
 
-    public boolean resetPlayer(String username) {
+    public synchronized boolean resetPlayer(String username) {
         boolean removed = acceptedPlayers.remove(username.toLowerCase());
         if (removed) {
             try {

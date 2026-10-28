@@ -224,7 +224,7 @@ public class HytaleHubPlugin extends JavaPlugin {
         pendingVoteService = new PendingVoteService(pendingVotesPath);
         try {
             pendingVoteService.loadFromFile();
-        } catch (IOException e) {
+        } catch (Throwable e) {
             log(Level.WARNING, "Could not load pending votes: " + e.getMessage());
         }
 
@@ -236,7 +236,7 @@ public class HytaleHubPlugin extends JavaPlugin {
         rulesAcceptanceService = new RulesAcceptanceService(rulesPath);
         try {
             rulesAcceptanceService.loadFromFile();
-        } catch (IOException e) {
+        } catch (Throwable e) {
             log(Level.WARNING, "Could not load accepted rules: " + e.getMessage());
         }
 
@@ -245,7 +245,7 @@ public class HytaleHubPlugin extends JavaPlugin {
         pendingRewardsService = new PendingRewardsService(pendingRewardsPath);
         try {
             pendingRewardsService.loadFromFile();
-        } catch (IOException e) {
+        } catch (Throwable e) {
             log(Level.WARNING, "Could not load pending rewards: " + e.getMessage());
         }
 
@@ -279,12 +279,12 @@ public class HytaleHubPlugin extends JavaPlugin {
                 break;
 
             case "pull":
-                votePollService = new VotePollService(this, config, voteHandler);
+                votePollService = new VotePollService(this, config, voteHandler, pendingVoteService);
                 break;
 
             default:
                 log(Level.WARNING, "Unknown votifier mode: " + mode + ", defaulting to pull");
-                votePollService = new VotePollService(this, config, voteHandler);
+                votePollService = new VotePollService(this, config, voteHandler, pendingVoteService);
         }
     }
 
@@ -338,6 +338,8 @@ public class HytaleHubPlugin extends JavaPlugin {
         getEventRegistry().register(PlayerDisconnectEvent.class, event -> {
             if (event.getPlayerRef() != null) {
                 String username = event.getPlayerRef().getUsername();
+
+                listener.onPlayerLeave(username);
 
                 // Stop vote reminders
                 if (voteReminderService != null) {

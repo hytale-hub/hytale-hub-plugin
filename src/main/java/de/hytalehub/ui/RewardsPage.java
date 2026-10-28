@@ -19,6 +19,7 @@ import com.hypixel.hytale.server.core.universe.world.storage.EntityStore;
 
 import de.hytalehub.HytaleHubPlugin;
 import de.hytalehub.model.RewardItem;
+import de.hytalehub.model.RewardItems;
 import de.hytalehub.service.PendingRewardsService;
 
 import java.util.ArrayList;
@@ -103,6 +104,10 @@ public class RewardsPage extends InteractiveCustomUIPage<RewardsPage.Data> {
 
         HytaleHubPlugin.getInstance().log(Level.INFO,
             "RewardsPage action: " + data.action + " from " + username);
+
+        // Votes can add rewards while the page is open. Always work on the stored list;
+        // new rewards are appended, so the indexes shown on the page stay valid.
+        refreshRewards();
 
         boolean needsUpdate = false;
 
@@ -242,6 +247,15 @@ public class RewardsPage extends InteractiveCustomUIPage<RewardsPage.Data> {
         }
 
         RewardItem reward = rewards.get(index);
+        if (!RewardItems.isUsable(reward)) {
+            HytaleHubPlugin.getInstance().log(Level.WARNING,
+                "Unknown reward item for " + username + ": " + reward + " (check config.json)");
+            this.playerRef.sendMessage(Message.join(
+                Message.raw("[Hytale-Hub] ").color("#a855f7").bold(true),
+                Message.raw("Dieses Item gibt es auf dem Server nicht. Bitte melde das einem Admin.").color("#ef4444")
+            ));
+            return false;
+        }
         ItemStack stack = new ItemStack(reward.getItemId(), reward.getQuantity());
 
         // Check BEFORE adding - prevent item loss
@@ -254,8 +268,8 @@ public class RewardsPage extends InteractiveCustomUIPage<RewardsPage.Data> {
         }
 
         if (player.getInventory().getCombinedStorageFirst().addItemStack(stack).succeeded()) {
+            rewardsService.removeReward(username, reward);
             rewards.remove(index);
-            saveRewards();
 
             this.playerRef.sendMessage(Message.join(
                 Message.raw("[Hytale-Hub] ").color("#a855f7").bold(true),
@@ -280,23 +294,37 @@ public class RewardsPage extends InteractiveCustomUIPage<RewardsPage.Data> {
             return false;
         }
 
-        List<RewardItem> remaining = new ArrayList<>();
         int claimed = 0;
+        int invalid = 0;
+        int noSpace = 0;
 
-        for (RewardItem reward : rewards) {
-            ItemStack stack = new ItemStack(reward.getItemId(), reward.getQuantity());
-            // Check space BEFORE adding each item
-            if (player.getInventory().getCombinedStorageFirst().canAddItemStack(stack)
-                    && player.getInventory().getCombinedStorageFirst().addItemStack(stack).succeeded()) {
-                claimed++;
-            } else {
-                remaining.add(reward);
+        // Each item is removed from storage right after it landed in the inventory. If anything
+        // throws halfway, the items already handed out are gone from the list and cannot be claimed twice.
+        for (RewardItem reward : new ArrayList<>(rewards)) {
+            if (!RewardItems.isUsable(reward)) {
+                invalid++;
+                HytaleHubPlugin.getInstance().log(Level.WARNING,
+                    "Unknown reward item for " + username + ": " + reward + " (check config.json)");
+                continue;
+            }
+            try {
+                ItemStack stack = new ItemStack(reward.getItemId(), reward.getQuantity());
+                // Check space BEFORE adding each item
+                if (player.getInventory().getCombinedStorageFirst().canAddItemStack(stack)
+                        && player.getInventory().getCombinedStorageFirst().addItemStack(stack).succeeded()) {
+                    rewardsService.removeReward(username, reward);
+                    claimed++;
+                } else {
+                    noSpace++;
+                }
+            } catch (Throwable e) {
+                invalid++;
+                HytaleHubPlugin.getInstance().log(Level.WARNING,
+                    "Could not hand out " + reward + " to " + username + ": " + e);
             }
         }
 
-        rewards.clear();
-        rewards.addAll(remaining);
-        saveRewards();
+        refreshRewards();
 
         if (claimed > 0) {
             this.playerRef.sendMessage(Message.join(
@@ -305,10 +333,17 @@ public class RewardsPage extends InteractiveCustomUIPage<RewardsPage.Data> {
             ));
         }
 
-        if (!remaining.isEmpty()) {
+        if (noSpace > 0) {
             this.playerRef.sendMessage(Message.join(
                 Message.raw("[Hytale-Hub] ").color("#a855f7").bold(true),
-                Message.raw(remaining.size() + " nicht abgeholt (Inventar voll).").color("#fbbf24")
+                Message.raw(noSpace + " nicht abgeholt (Inventar voll).").color("#fbbf24")
+            ));
+        }
+
+        if (invalid > 0) {
+            this.playerRef.sendMessage(Message.join(
+                Message.raw("[Hytale-Hub] ").color("#a855f7").bold(true),
+                Message.raw(invalid + " Item(s) gibt es auf dem Server nicht. Bitte melde das einem Admin.").color("#ef4444")
             ));
         }
 
@@ -322,8 +357,9 @@ public class RewardsPage extends InteractiveCustomUIPage<RewardsPage.Data> {
         return true;
     }
 
-    private void saveRewards() {
-        rewardsService.replaceRewards(username, rewards);
+    private void refreshRewards() {
+        rewards.clear();
+        rewards.addAll(rewardsService.getRewards(username));
     }
 
     private String formatItemName(String itemId) {

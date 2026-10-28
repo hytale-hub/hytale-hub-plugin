@@ -31,6 +31,7 @@ public class VotePollService {
     private final HytaleHubPlugin plugin;
     private final HytaleHubConfig config;
     private final VoteHandler voteHandler;
+    private final PendingVoteService pendingVoteService;
 
     private final HttpClient httpClient;
     private final AtomicBoolean running;
@@ -42,10 +43,12 @@ public class VotePollService {
     public VotePollService(
             HytaleHubPlugin plugin,
             HytaleHubConfig config,
-            VoteHandler voteHandler) {
+            VoteHandler voteHandler,
+            PendingVoteService pendingVoteService) {
         this.plugin = plugin;
         this.config = config;
         this.voteHandler = voteHandler;
+        this.pendingVoteService = pendingVoteService;
 
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofMillis(HytaleHubConfig.HTTP_TIMEOUT))
@@ -151,6 +154,14 @@ public class VotePollService {
             for (var element : votes) {
                 try {
                     JsonObject voteJson = element.getAsJsonObject();
+
+                    // Each vote has a unique id. Remember it, so a repeated delivery never pays twice.
+                    String voteId = voteJson.has("id") && !voteJson.get("id").isJsonNull()
+                            ? voteJson.get("id").getAsString() : null;
+                    if (pendingVoteService != null && !pendingVoteService.markVoteIdSeen(voteId)) {
+                        plugin.log(Level.INFO, "[Poll #" + pollId + "] Vote " + voteId + " already received, ignored");
+                        continue;
+                    }
 
                     String serviceName = voteJson.get("service_name").getAsString();
                     String username = voteJson.get("username").getAsString();

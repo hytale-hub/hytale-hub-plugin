@@ -6,7 +6,7 @@ The official server plugin for [Hytale-Hub.de](https://www.hytale-hub.de), the G
 It connects your server to the site: **verified live status**, **vote delivery with in-game rewards**, **account linking** and an optional **server rules screen**.
 
 > Full guides (setup, token, linking players, FAQ): <https://www.hytale-hub.de/docs/plugin>
-> Releases: see the [Releases](../../releases) page. Current version: **0.2.1**
+> Releases: see the [Releases](../../releases) page. Current version: **0.2.2**
 
 ---
 
@@ -110,7 +110,9 @@ If anything does not work, check the console for lines starting with `[HytaleHub
 ## Rewards
 
 - **Item rewards** land in the `/rewards` container. The container is take-only, so players cannot put items in, and nothing is lost when the inventory is full. Unclaimed items survive restarts.
-- **Command rewards** run as console commands at once. Votes for offline players are saved and processed at their next join.
+- **Command rewards** run as console commands at once. Votes for offline players are saved and processed at their next join, once the player is in the world.
+- Only player names made of letters, digits and underscores are accepted, because they are inserted into console commands.
+- Unknown item IDs in `rewards.items` are skipped with a warning in the log instead of handing out an empty item.
 - Rewards are handed out **before** chat messages and the broadcast. A failure in a message can never block a reward.
 
 ## Troubleshooting
@@ -159,6 +161,15 @@ Issues and pull requests are welcome. Please run the API check before you open a
 - Discord: <https://discord.gg/DYQ6Ec57bu>
 
 ## Changelog
+
+### 0.2.2
+- Fix: a vote arriving while `/rewards` was open was lost on the next claim.
+- Fix: offline votes were processed before the player was in the world; reward commands could miss them.
+- Fix: data files are written atomically; a corrupt file is moved aside (`*.corrupt-<time>`) instead of stopping the plugin.
+- Fix: pull mode remembers vote IDs and ignores repeated deliveries.
+- Fix: "Claim all" could hand out items twice after an error; unknown item IDs are rejected.
+- Player names are validated before they go into console commands. Failed reward commands are logged.
+- `config.example.json` matches the real config format.
 
 ### 0.2.1
 - Fix: `NoSuchMethodError` on newer servers in `/vote` broadcast (`Universe.getPlayers`), `/rewards` (`Player.sendMessage`, `ContainerWindow.onClose0`) and the rules kick (`PacketHandler.disconnect`).
